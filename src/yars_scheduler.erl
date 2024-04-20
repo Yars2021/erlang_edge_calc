@@ -97,9 +97,6 @@ execute(_, _, {Status, Node, []}) -> {Status, Node, []};
 execute(_, _, {busy, Node, Queue}) -> {busy, Node, Queue};
 
 execute(Supervisor, Scheduler, {free, Node, [{TaskID, Func, Args, Priority, Timeout} | Tail]}) ->
-    {yars_agregator, node()} !
-        {exec, 1, {TaskID, Func, Args, Priority, Timeout}},
-
     Node !
         form_message(
             normal,
@@ -243,9 +240,9 @@ agregate(Tasks, Results) ->
             agregate([{Run, TaskID, Func, Args, Priority, Timeout} | Tasks], Results);
 
         {retry, TaskID} ->
-            {Run, TaskID, Func, Args, Priority, Timeout} = get_full_task(TaskID, TaskID),
+            {Run, TaskID, Func, Args, Priority, Timeout} = get_full_task(TaskID, Tasks),
 
-            case Run >= 3 of
+            case Run <= 0 of
                 true -> agregate(remove_task(TaskID, Tasks), Results);
                 false ->
                     {yars_scheduler, node()} !
