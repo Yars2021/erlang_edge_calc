@@ -119,7 +119,7 @@ listen() ->
                     }
                 );
         _ ->
-            io:format("Ignoring the invalid message.~n")
+            io:fwrite("Ignoring the invalid message.~n")
     end,
 
     listen().
