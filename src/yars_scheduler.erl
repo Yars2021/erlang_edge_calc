@@ -84,7 +84,7 @@ cluster_queue_task(Run, Task, Cluster) -> queue_task(Run, Task, get_least_busy(C
 queue_task(_, _, _, []) -> {empty_cluster};
 
 queue_task(Run, Task, {Status, Node, Queue}, [{Status, Node, Queue} | Tail]) ->
-    {yars_agregator, node()} ! {exec, Run, Node, Task},
+    {yars_agregator, node()} ! {exec, Run, Task},
     [{Status, Node, lists:sort(fun comp/2, [Task | Queue])} | Tail];
 
 queue_task(Run, Task, Node, [Head | Tail]) ->
@@ -198,7 +198,7 @@ listen(Supervisor, Scheduler, Cluster) ->
             mark_as_failed(TaskID);
 
         {{result, TaskID, _, _, _}, {timeout, Comment, _}} ->
-            io:fwrite("Task ~p: ~p.~n", [TaskID, Comment]),
+            io:fwrite("Task \"~p\": ~p.~n", [TaskID, Comment]),
             retry_task(TaskID);
 
         _ ->
