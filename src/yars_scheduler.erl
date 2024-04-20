@@ -1,7 +1,10 @@
 -module(yars_scheduler).
 
 -export([start/1,
-         generate_id/0]).
+         generate_id/0,
+         view/0,
+         run/5,
+         results/0]).
 
 -include("../inc/network_interface.hrl").
 
@@ -77,18 +80,18 @@ get_least_busy([Head | Tail], RetVal) ->
 
 % Добавить задачу в очередь наименее занятому из узлов
 cluster_queue_task(_, _, []) -> [];
-cluster_queue_task(Run, Task, Cluster) -> queue_task(Run, Task, get_least_busy(Cluster), Cluster).
+cluster_queue_task(Rerun, Task, Cluster) -> queue_task(Rerun, Task, get_least_busy(Cluster), Cluster).
 
 
 % Добавить задачу в очередь узла с учетом приоритета
 queue_task(_, _, _, []) -> {empty_cluster};
 
-queue_task(Run, Task, {Status, Node, Queue}, [{Status, Node, Queue} | Tail]) ->
-    {yars_agregator, node()} ! {exec, Run, Task},
+queue_task(Rerun, Task, {Status, Node, Queue}, [{Status, Node, Queue} | Tail]) ->
+    {yars_agregator, node()} ! {exec, Rerun, Task},
     [{Status, Node, lists:sort(fun comp/2, [Task | Queue])} | Tail];
 
-queue_task(Run, Task, Node, [Head | Tail]) ->
-    [Head | queue_task(Run, Task, Node, Tail)].
+queue_task(Rerun, Task, Node, [Head | Tail]) ->
+    [Head | queue_task(Rerun, Task, Node, Tail)].
 
 
 % Начать исполнение первой задачи из очереди узла
@@ -123,6 +126,20 @@ execute_all(Supervisor, Scheduler, [Head | Tail]) ->
     [execute(Supervisor, Scheduler, Head) | execute_all(Supervisor, Scheduler, Tail)].
 
 
+% Просмотреть кластер
+view() -> {yars_scheduler, node()} ! {view}.
+
+
+% Отправить задачу на исполнение
+run(Func, Args, Priority, Timeout, Rerun) ->
+    {yars_scheduler, node()} ! {exec, Rerun, Func, Args, Priority, Timeout}.
+
+
+% Получить все результаты
+results() ->
+    {yars_agregator, node()} ! {results}.
+
+
 % Отметить задачу как решенную
 mark_as_done(TaskID, Result) -> {yars_agregator, node()} ! {ok, TaskID, Result}.
 
@@ -141,11 +158,10 @@ listen(Supervisor, Scheduler, Cluster) ->
 
     receive
         {view} ->
-            io:fwrite("Current cluster:~n~n"),
             print_cluster(NewCluster),
             io:fwrite("~n");
 
-        {exec, Run, Func, Args, Priority, Timeout} ->
+        {exec, Rerun, Func, Args, Priority, Timeout} ->
             NodeRecord = find_first_free(NewCluster),
 
             case NodeRecord of
@@ -157,7 +173,7 @@ listen(Supervisor, Scheduler, Cluster) ->
                         Supervisor,
                         Scheduler,
                         cluster_queue_task(
-                            Run,
+                            Rerun,
                             {generate_id(), Func, Args, Priority, Timeout},
                             NewCluster
                         )
@@ -168,7 +184,7 @@ listen(Supervisor, Scheduler, Cluster) ->
                         Supervisor,
                         Scheduler,
                         queue_task(
-                            Run,
+                            Rerun,
                             {generate_id(), Func, Args, Priority, Timeout},
                             NodeRecord,
                             NewCluster
@@ -189,22 +205,30 @@ listen(Supervisor, Scheduler, Cluster) ->
             listen(Supervisor, Scheduler, set_status(free, Node, NewCluster));
 
         {{result, TaskID, _, _, Scheduler}, {ok, Comment, Result}} ->
-            io:fwrite("Task \"~p\" executed successfully.~nComment: ~p.~n", [TaskID, Comment]),
+            io:fwrite("Task \"~p\" executed successfully.~nComment: ~p.~nResult: ~p~n~n.",
+                [TaskID, Comment, Result]),
             mark_as_done(TaskID, Result);
 
         {{result, TaskID, _, _, _}, {fail, Comment, _}} ->
-            io:fwrite("Task \"~p\" failed.~nComment: ~p.~n", [TaskID, Comment]),
+            io:fwrite("Task \"~p\" failed.~nComment: ~p.~n~n", [TaskID, Comment]),
             mark_as_failed(TaskID);
 
         {{result, TaskID, _, _, _}, {timeout, Comment, _}} ->
-            io:fwrite("Task \"~p\": ~p.~n", [TaskID, Comment]),
+            io:fwrite("Task \"~p\": ~p.~n~n", [TaskID, Comment]),
             retry_task(TaskID);
 
         _ ->
-            io:fwrite("Ignoring the invalid message.~n")
+            io:fwrite("Ignoring the invalid message.~n~n")
     end,
 
     listen(Supervisor, Scheduler, NewCluster).
+
+
+% Печать результатов
+print_results([]) -> io:fwrite("~n");
+print_results([{{Func, Args}, Result} | Tail]) ->
+    io:fwrite("~p (~p) = ~p~n", [Func, Args, Result]),
+    print_results(Tail).
 
 
 % Найти задачу по ID
@@ -222,8 +246,8 @@ remove_task(TaskID, [_ | Tail]) -> remove_task(TaskID, Tail).
 % Найти полную запись о задаче
 get_full_task(_, []) -> {task_not_found};
 
-get_full_task(TaskID, [{Run, TaskID, Func, Args, Priority, Timeout} | _]) ->
-    {Run, TaskID, Func, Args, Priority, Timeout};
+get_full_task(TaskID, [{Rerun, TaskID, Func, Args, Priority, Timeout} | _]) ->
+    {Rerun, TaskID, Func, Args, Priority, Timeout};
 
 get_full_task(TaskID, [_ | Tail]) -> get_full_task(TaskID, Tail).
 
@@ -231,6 +255,10 @@ get_full_task(TaskID, [_ | Tail]) -> get_full_task(TaskID, Tail).
 % Хранение результатов исполнения и информации о задачах
 agregate(Tasks, Results) ->
     receive
+        {results} ->
+            print_results(Results),
+            io:fwrite("~n~n");
+
         {fail, TaskID} ->
             agregate(remove_task(TaskID, Tasks), Results);
 
@@ -238,17 +266,22 @@ agregate(Tasks, Results) ->
             Task = get_task(TaskID, Tasks),
             agregate(remove_task(TaskID, Tasks), [{Task, Result} | Results]);
 
-        {exec, Run, {TaskID, Func, Args, Priority, Timeout}} ->
-            agregate([{Run, TaskID, Func, Args, Priority, Timeout} | Tasks], Results);
+        {exec, Rerun, {TaskID, Func, Args, Priority, Timeout}} ->
+            agregate([{Rerun, TaskID, Func, Args, Priority, Timeout} | Tasks], Results);
 
         {retry, TaskID} ->
-            {Run, TaskID, Func, Args, Priority, Timeout} = get_full_task(TaskID, Tasks),
+            {Rerun, TaskID, Func, Args, Priority, Timeout} = get_full_task(TaskID, Tasks),
 
-            case 0 >= Run of
-                true -> agregate(remove_task(TaskID, Tasks), Results);
+            case 0 >= Rerun of
+                true ->
+                    io:fwrite("Task \"~p\" is taking too long to run and will be ignored.~n~n",
+                        [TaskID]),
+                    agregate(remove_task(TaskID, Tasks), Results);
                 false ->
+                    io:fwrite("Task \"~p\" timed out and will be executed again under a new ID.~n~n",
+                        [TaskID]),
                     {yars_scheduler, node()} !
-                        {exec, Run - 1, Func, Args, Priority, (Timeout + 1) * 2},
+                        {exec, TaskID, Rerun - 1, Func, Args, Priority, (Timeout + 1) * 2},
                     agregate(remove_task(TaskID, Tasks), Results)
             end
     end,
