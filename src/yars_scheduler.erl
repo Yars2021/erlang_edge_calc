@@ -248,7 +248,7 @@ agregate(Tasks, Results) ->
                 true -> agregate(remove_task(TaskID, Tasks), Results);
                 false ->
                     {yars_scheduler, node()} !
-                        {exec, Run + 1, Func, Args, Priority, (Timeout + 1) * 2},
+                        {exec, Run - 1, Func, Args, Priority, (Timeout + 1) * 2},
                     agregate(remove_task(TaskID, Tasks), Results)
             end
     end,
