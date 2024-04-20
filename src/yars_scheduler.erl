@@ -80,7 +80,8 @@ get_least_busy([Head | Tail], RetVal) ->
 
 % Добавить задачу в очередь наименее занятому из узлов
 cluster_queue_task(_, _, []) -> [];
-cluster_queue_task(Rerun, Task, Cluster) -> queue_task(Rerun, Task, get_least_busy(Cluster), Cluster).
+cluster_queue_task(Rerun, Task, Cluster) ->
+    queue_task(Rerun, Task, get_least_busy(Cluster), Cluster).
 
 
 % Добавить задачу в очередь узла с учетом приоритета
@@ -278,7 +279,7 @@ agregate(Tasks, Results) ->
                         [TaskID]),
                     agregate(remove_task(TaskID, Tasks), Results);
                 false ->
-                    io:fwrite("Task \"~p\" timed out and will be executed again under a new ID.~n~n",
+                    io:fwrite("Task \"~p\" timed out and will be scheduled again.~n~n",
                         [TaskID]),
                     {yars_scheduler, node()} !
                         {exec, TaskID, Rerun - 1, Func, Args, Priority, (Timeout + 1) * 2},
