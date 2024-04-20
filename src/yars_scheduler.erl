@@ -137,7 +137,7 @@ retry_task(TaskID) -> {yars_agregator, node()} ! {retry, TaskID}.
 
 % Обработка входящих сообщений от узлов и супервизора
 listen(Supervisor, Scheduler, Cluster) ->
-    NewCluster = execute_all(Cluster),
+    NewCluster = execute_all(Supervisor, Scheduler, Cluster),
 
     receive
         {view} ->
