@@ -18,7 +18,7 @@ join(Supervisor) ->
         form_message(
             control,
             #control_msg{
-                code=join, 
+                code=join,
                 node={yars_worker, node()}
             }
         ).
@@ -45,7 +45,7 @@ execute_task(Timeout, {Func, Args}) ->
             fun() ->
                 try Self ! {self(), Func(Args), ok}
                 catch error:Error ->
-                    Self ! {self(), Error, fail} 
+                    Self ! {self(), Error, fail}
                 end
             end),
 
@@ -54,20 +54,20 @@ execute_task(Timeout, {Func, Args}) ->
             #response_body{
                 exitcode=ok,
                 comment="Execution successful",
-                result=Result 
+                result=Result
             };
         {_, Error, fail} ->
             #response_body{
                 exitcode=fail,
                 comment=Error,
-                result=0 
+                result=0
             }
     after
         Timeout ->
             #response_body{
                 exitcode=timeout,
                 comment="Execution timed out",
-                result=Timeout    
+                result=Timeout
             }
     end.
 
@@ -98,14 +98,14 @@ listen() ->
 
             Scheduler !
                 form_message(
-                    normal, 
+                    normal,
                     #header{
                         code=result,
                         task_id=TaskID,
                         node_id=Node,
                         supervisor=Supervisor,
                         scheduler=Scheduler
-                    }, 
+                    },
                     execute_task(Timeout, Task)
                 ),
 
