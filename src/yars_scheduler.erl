@@ -49,7 +49,8 @@ comp({_, _, _, APr, _}, {_, _, _, BPr, _}) -> APr > BPr.
 
 % Найти занятость узла
 get_load({_, _, []}) -> 0;
-get_load({Status, Node, [{_, _, _, _, Timeout} | Tail]}) -> Timeout + get_load({Status, Node, Tail}).
+get_load({Status, Node, [{_, _, _, _, Timeout} | Tail]}) ->
+    Timeout + get_load({Status, Node, Tail}).
 
 
 % Найти узел с минимальной очередью
@@ -150,14 +151,23 @@ listen(Supervisor, Scheduler, Cluster) ->
                     listen(
                         Supervisor,
                         Scheduler,
-                        cluster_queue_task(Run, {generate_id(), Func, Args, Priority, Timeout}, Cluster)
+                        cluster_queue_task(
+                            Run,
+                            {generate_id(), Func, Args, Priority, Timeout},
+                            Cluster
+                        )
                     );
 
                 NodeRecord ->
                     listen(
                         Supervisor,
                         Scheduler,
-                        queue_task(Run, {generate_id(), Func, Args, Priority, Timeout}, NodeRecord, Cluster)
+                        queue_task(
+                            Run,
+                            {generate_id(), Func, Args, Priority, Timeout},
+                            NodeRecord,
+                            Cluster
+                        )
                     )
             end;
 
@@ -176,7 +186,7 @@ listen(Supervisor, Scheduler, Cluster) ->
         {{result, TaskID, _, _, Scheduler}, {ok, Comment, Result}} ->
             io:fwrite("Task \"~p\" executed successfully.~nComment: ~p.~n", [TaskID, Comment]),
             mark_as_done(TaskID, Result);
-        
+
         {{result, TaskID, _, _, _}, {fail, Comment, _}} ->
             io:fwrite("Task \"~p\" failed.~nComment: ~p.~n", [TaskID, Comment]),
             mark_as_failed(TaskID);
@@ -232,9 +242,10 @@ agregate(Tasks, Results) ->
             case Run >= 3 of
                 true -> agregate(remove_task(TaskID, Tasks), Results);
                 false ->
-                    {yars_scheduler, node()} ! {exec, Run + 1, Func, Args, Priority, (Timeout + 1) * 2},
+                    {yars_scheduler, node()} !
+                        {exec, Run + 1, Func, Args, Priority, (Timeout + 1) * 2},
                     agregate(remove_task(TaskID, Tasks), Results)
             end
     end,
-    
+
     agregate(Tasks, Results).
