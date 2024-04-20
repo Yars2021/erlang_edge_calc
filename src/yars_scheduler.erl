@@ -30,6 +30,12 @@ remove_node(Node, [{_, Node, _} | Tail]) -> Tail;
 remove_node(Node, [Head | Tail]) -> [Head | remove_node(Node, Tail)].
 
 
+% Добавить узел в кластер
+append_node(Node, []) -> [{free, Node, []}];
+append_node(Node, [{Status, Node, Queue} | Tail]) -> [{Status, Node, Queue} | Tail];
+append_node(Node, [Head | Tail]) -> [Head | append_node(Node, Tail)].
+
+
 % Изменене статуса узла
 set_status(_, _, []) -> [];
 set_status(Status, Node, [{_, Node, Queue} | Tail]) -> [{Status, Node, Queue} | Tail];
@@ -172,7 +178,7 @@ listen(Supervisor, Scheduler, Cluster) ->
             end;
 
         {recruit, Node} ->
-            listen(Supervisor, Scheduler, [{free, Node, []} | Cluster]);
+            listen(Supervisor, Scheduler, append_node(Node, Cluster));
 
         {expel, Node} ->
             listen(Supervisor, Scheduler, remove_node(Node, Cluster));
