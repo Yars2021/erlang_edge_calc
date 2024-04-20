@@ -137,14 +137,16 @@ retry_task(TaskID) -> {yars_agregator, node()} ! {retry, TaskID}.
 
 % Обработка входящих сообщений от узлов и супервизора
 listen(Supervisor, Scheduler, Cluster) ->
+    NewCluster = execute_all(Cluster),
+
     receive
         {view} ->
             io:fwrite("Current cluster:~n~n"),
-            print_cluster(Cluster),
+            print_cluster(NewCluster),
             io:fwrite("~n");
 
         {exec, Run, Func, Args, Priority, Timeout} ->
-            NodeRecord = find_first_free(Cluster),
+            NodeRecord = find_first_free(NewCluster),
 
             case NodeRecord of
                 {empty_cluster} ->
@@ -157,7 +159,7 @@ listen(Supervisor, Scheduler, Cluster) ->
                         cluster_queue_task(
                             Run,
                             {generate_id(), Func, Args, Priority, Timeout},
-                            Cluster
+                            NewCluster
                         )
                     );
 
@@ -169,22 +171,22 @@ listen(Supervisor, Scheduler, Cluster) ->
                             Run,
                             {generate_id(), Func, Args, Priority, Timeout},
                             NodeRecord,
-                            Cluster
+                            NewCluster
                         )
                     )
             end;
 
         {recruit, Node} ->
-            listen(Supervisor, Scheduler, append_node(Node, Cluster));
+            listen(Supervisor, Scheduler, append_node(Node, NewCluster));
 
         {expel, Node} ->
-            listen(Supervisor, Scheduler, remove_node(Node, Cluster));
+            listen(Supervisor, Scheduler, remove_node(Node, NewCluster));
 
         {lock, Node} ->
-            listen(Supervisor, Scheduler, set_status(busy, Node, Cluster));
+            listen(Supervisor, Scheduler, set_status(busy, Node, NewCluster));
 
         {unlock, Node} ->
-            listen(Supervisor, Scheduler, set_status(free, Node, Cluster));
+            listen(Supervisor, Scheduler, set_status(free, Node, NewCluster));
 
         {{result, TaskID, _, _, Scheduler}, {ok, Comment, Result}} ->
             io:fwrite("Task \"~p\" executed successfully.~nComment: ~p.~n", [TaskID, Comment]),
@@ -202,7 +204,7 @@ listen(Supervisor, Scheduler, Cluster) ->
             io:fwrite("Ignoring the invalid message.~n")
     end,
 
-    listen(Supervisor, Scheduler, execute_all(Supervisor, Scheduler, Cluster)).
+    listen(Supervisor, Scheduler, NewCluster).
 
 
 % Найти задачу по ID
