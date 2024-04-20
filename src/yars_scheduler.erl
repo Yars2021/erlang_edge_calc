@@ -18,9 +18,9 @@ generate_id() ->
 
 
 % Печать кластера
-print_cluster([]) -> io:format("~n");
+print_cluster([]) -> io:fwrite("~n");
 print_cluster([Head | Tail]) ->
-    io:format("~p~n", [Head]),
+    io:fwrite("~p~n", [Head]),
     print_cluster(Tail).
 
 
@@ -135,16 +135,16 @@ retry_task(TaskID) -> {yars_agregator, node()} ! {retry, TaskID}.
 listen(Supervisor, Scheduler, Cluster) ->
     receive
         {view} ->
-            io:format("Current cluster:~n~n"),
+            io:fwrite("Current cluster:~n~n"),
             print_cluster(Cluster),
-            io:format("~n");
+            io:fwrite("~n");
 
         {exec, Run, Func, Args, Priority, Timeout} ->
             NodeRecord = find_first_free(Cluster),
 
             case NodeRecord of
                 {empty_cluster} ->
-                    io:format("Cluster is empty, unable to allocate.~n");
+                    io:fwrite("Cluster is empty, unable to allocate.~n");
 
                 {all_busy} ->
                     listen(
@@ -174,19 +174,19 @@ listen(Supervisor, Scheduler, Cluster) ->
             listen(Supervisor, Scheduler, set_status(free, Node, Cluster));
 
         {{result, TaskID, _, _, Scheduler}, {ok, Comment, Result}} ->
-            io:format("Task \"~p\" executed successfully.~nComment: ~p.~n", [TaskID, Comment]),
+            io:fwrite("Task \"~p\" executed successfully.~nComment: ~p.~n", [TaskID, Comment]),
             mark_as_done(TaskID, Result);
         
         {{result, TaskID, _, _, _}, {fail, Comment, _}} ->
-            io:format("Task \"~p\" failed.~nComment: ~p.~n", [TaskID, Comment]),
+            io:fwrite("Task \"~p\" failed.~nComment: ~p.~n", [TaskID, Comment]),
             mark_as_failed(TaskID);
 
         {{result, TaskID, _, _, _}, {timeout, Comment, _}} ->
-            io:format("Task ~p: ~p.~n", [TaskID, Comment]),
+            io:fwrite("Task ~p: ~p.~n", [TaskID, Comment]),
             retry_task(TaskID);
 
         _ ->
-            io:format("Ignoring the invalid message.~n")
+            io:fwrite("Ignoring the invalid message.~n")
     end,
 
     listen(Supervisor, Scheduler, execute_all(Supervisor, Scheduler, Cluster)).
