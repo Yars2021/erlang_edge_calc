@@ -44,12 +44,12 @@ set_status(Status, Node, [Head | Tail]) -> [Head | set_status(Status, Node, Tail
 listen(Scheduler, Cluster) ->
     receive
         {join, Node} ->
-            io:format("Node trying to join.~n"),
+            io:fwrite("Node trying to join.~n"),
             send_to_scheduler(recruit, Node, Scheduler),
             listen(Scheduler, append_node(Node, Cluster));
 
         {leave, Node} ->
-            io:format("Node trying to leave.~n"),
+            io:fwrite("Node trying to leave.~n"),
             send_to_scheduler(expel, Node, Scheduler),
             listen(Scheduler, remove_node(Node, Cluster));
 
@@ -62,7 +62,7 @@ listen(Scheduler, Cluster) ->
             listen(Scheduler, set_status(free, Node, Cluster));
 
         _ ->
-            io:format("Ignoring the invalid message.~n")
+            io:fwrite("Ignoring the invalid message.~n")
     end,
 
     listen(Scheduler, Cluster).
