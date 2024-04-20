@@ -76,7 +76,7 @@ execute_task(Timeout, {Func, Args}) ->
 listen() ->
     receive
         {{task, TaskID, Node, Supervisor, Scheduler}, {Timeout, Task}} ->
-            io:format("Received task \"~p\". Executing.~n", [TaskID]),
+            io:fwrite("Received task \"~p\". Executing.~n", [TaskID]),
 
             RepHeader = #header{
                 code=report,
